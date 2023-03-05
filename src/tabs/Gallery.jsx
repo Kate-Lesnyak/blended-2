@@ -2,6 +2,7 @@ import { Component } from 'react';
 
 import * as ImageService from 'service/image-service';
 import { Button, SearchForm, Grid, GridItem, Text, CardItem } from 'components';
+import { Loader } from 'components/Loader/Loader';
 
 export class Gallery extends Component {
   state = {
@@ -9,23 +10,37 @@ export class Gallery extends Component {
     page: 1,
     images: [],
     showBtn: false,
+    isLoading: false,
+    isEmpty: false,
+    error: '',
   };
 
   componentDidUpdate(prevProps, prevState) {
     const { query, page } = this.state;
     if (query !== prevState.query || page !== prevState.page) {
-      ImageService.getImages(query, page).then(({ photos, total_results }) => {
-        this.setState(prevState => ({
-          images: [...prevState.images, ...photos],
-          showBtn: page < Math.ceil(total_results / 15),
-        }));
-        console.log(photos);
-      });
+      this.setState({ isLoading: true });
+      ImageService.getImages(query, page)
+        .then(({ photos, total_results }) => {
+          if (!photos.length) {
+            this.setState({ isEmpty: true });
+            return;
+          }
+          this.setState(prevState => ({
+            images: [...prevState.images, ...photos],
+            showBtn: page < Math.ceil(total_results / 15),
+          }));
+        })
+        .catch(error => {
+          this.setState({
+            error: error.message,
+          })
+        })
+        .finally(this.setState({ isLoading: false }));
     }
   }
 
   handleSubmit = query => {
-    this.setState({ query, images: [], page: 1, showBtn: false });
+    this.setState({ query, images: [], page: 1, showBtn: false, isEmpty: false, error: '', });
   };
 
   onClickButton = () => {
@@ -52,7 +67,9 @@ export class Gallery extends Component {
         {this.state.showBtn && (
           <Button onClick={this.onClickButton}>Load more</Button>
         )}
-        {/* <Text textAlign="center">Sorry. There are no images ... 😭</Text> */}
+        {this.state.isLoading && <Loader />}
+        {this.state.isEmpty&& <Text textAlign="center">Sorry. There are no images ... 😭</Text>}
+        {this.state.error&& <Text textAlign="center">{this.state.error} ... 😭</Text>}
       </>
     );
   }
